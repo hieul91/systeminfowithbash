@@ -1,0 +1,115 @@
+#!/bin/bash
+# Student: Hieu Lim
+# Student ID: 040654796
+# Date: March 26, 2024
+# Description: This is a bash script that displays system report information and saves it to a log file that can be archived
+
+
+# Function to display system information
+
+display_system_info() {
+    echo
+    echo "System Information:"
+    echo "Hostname: $(hostname)"
+    echo "Operating System: $(uname -s)"
+    echo "Kernel Version: $(uname -r)"
+    echo "CPU Information: $(grep "model name" /proc/cpuinfo | uniq)"
+    echo "Total Memory: $(free -m | awk 'NR==2{print $2}')"
+    echo "Free Memory: $(free -m | awk 'NR==2{print $4}')"
+    echo "Disk Usage Information:"
+    df -h /
+    echo
+}
+
+# Function to check CPU load and has an if statement to check the cpu load is within threshold of 80% and displays a message
+
+check_cpu_load() {
+    local load=$(uptime | awk -F'average:' '{print $2}' | awk -F',' '{print $1}' | xargs)
+    local threshold=0.8
+    if (( $(echo "$load > $threshold" | bc -l) )); then
+        echo "Warning: CPU load is high! Current load: $load"
+    else
+        echo "Success: CPU load is within acceptable limits. Current load: $load"
+    fi
+}
+
+# Function to check memory usage and displays a message if the usage is within the desired limit 50%
+
+check_memory_usage() {
+    local total_mem=$(free -m | awk '/Mem/{print $2}')
+    local used_mem=$(free -m | awk '/Mem/{print $3}')
+    local threshold=$((total_mem / 2))
+    local usage_percentage=$((used_mem * 100 / total_mem))
+    if (( used_mem > threshold )); then
+        echo "Warning: Memory usage is high! Current usage: $usage_percentage%"
+    else
+        echo "Success: Memory usage is within acceptable limits. Current usage: $usage_percentage%"
+    fi
+}
+
+# Function to check disk usage and display a message. Has a disk usage threshold of 70%
+
+check_disk_usage() {
+    local disk_usage=$(df / | awk 'NR==2 {print $5}' | sed 's/%//')
+    local threshold=70
+    if (( disk_usage > threshold )); then
+        echo "Warning: Disk usage is high! Current usage: $disk_usage%"
+    else
+        echo "Success: Disk usage is within acceptable limits. Current usage: $disk_usage%"
+    fi
+}
+
+# Function to create system report log that appends it to a log file. It also Displays System report information.
+
+create_system_report_log() {
+    echo "Generating system report..."
+    echo
+    local log_file="system_report.log"
+    local datetime=$(date +"%Y-%m-%d %H:%M:%S")
+    echo "System Report - $datetime" >> "$log_file"
+    display_system_info >> "$log_file"
+    check_cpu_load >> "$log_file"
+    check_memory_usage >> "$log_file"
+    check_disk_usage >> "$log_file"
+    tail -15 "$log_file"
+    echo "System report details have been added to $log_file"
+}
+
+# Function to create archive with else system to create log file if it doesn't already exist.
+
+create_archive() {
+    local log_file="system_report.log"
+    local archive_file="system_report.tar.gz"
+    if [ -f "$log_file" ]; then
+        tar -czf "$archive_file" "$log_file"
+        echo "Archive created: $archive_file"
+    else
+        create_system_report_log
+        tar -czf "$archive_file" "$log_file"
+        echo
+        echo "Archive created successfully."
+    fi
+    echo
+}
+
+# This is the main menu of the script that takes the user input to pick 1 of 3 options for system reporting.
+
+while true; do
+    echo
+    echo "System Monitoring and Reporting"
+    echo +++++++++++++++++++++++++++++++++++++++++++++++++
+    echo "1. Generate system report"
+    echo "2. Create Archive"
+    echo "3. Exit"
+    echo +++++++++++++++++++++++++++++++++++++++++++++++++
+    read -p "Enter your choice: " choice
+    case $choice in
+        1) create_system_report_log ;;
+        2) create_archive ;;
+        3) echo "Exiting..."; exit ;;
+        *) echo "Invalid option! Please choose a valid menu item." ;;
+    esac
+    echo
+done
+
+
